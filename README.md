@@ -1,4 +1,4 @@
 Creepium
 ========
-Some sort of game.
+Some sort of game. Explore rooms, get sp00ked.
 Creepium
