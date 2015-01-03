@@ -39,7 +39,7 @@ function keyHandler(key,state)
         case 39:
         case 68: keys.right = state; break;
         case 32: keys.space = state; break;
-        case 17: keys.ctrl = state; break;
+        case 16: keys.shift = state; break;
         case 69: keys.action = state; break;
     }
 }
