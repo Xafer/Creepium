@@ -4,12 +4,27 @@
     <meta charset="UTF-8">
     <title>F8* Asset Maker</title>
     <link rel="stylesheet" href="css/reset.css">
+    <style>
+        canvas
+        {
+            width:100%;
+            height:100%;
+        }
+    </style>
 </head>
 <body>
-    
     <div id="display">
     </div>
 </body>
 <script src="lib/three.min.js"></script>
-<script src="javascript/creepium.js"></script>
+<script src="lib/CopyShader.js"></script>
+<script src="javascript/shaders.js"></script>
+<script src="lib/postprocessing/EffectComposer.js"></script>
+<script src="lib/postprocessing/RenderPass.js"></script>
+<script src="lib/postprocessing/MaskPass.js"></script>
+<script src="lib/postprocessing/ShaderPass.js"></script>
+
+<script src="javascript/control.js"></script>
+<script src="javascript/classes.js"></script>
+<script src="javascript/main.js"></script>
 </html>
