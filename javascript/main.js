@@ -54,12 +54,16 @@ function isFocused()
 //Global variables
 
 var player = new Player();
-var playerLight = new THREE.PointLight( 0xddaa77,1,2 );
+var playerLight = new THREE.PointLight( 0xddaa77,1,10 );
 scene.add(playerLight);
 player.position.y = 1;
+var deltaTime = 0;
+var lastFrame = (new Date()).getTime();
 
 var models = new Array();
 var rooms = new Array();
+
+var generated = false;
 
 var worldSize = new THREE.Vector2(3,3);
 
@@ -103,25 +107,81 @@ function addRoom(x,y,room)
 {
     room.models.position.x = x*5 - 5;
     room.models.position.z = y*5 - 5;
+    rooms[x][y] = room;
     scene.add(room.models);
 }
 
 function removeRoom(room)
 {
-    scene.remove(room);
-    rooms.splice(room.indexOf(room),1);
+    scene.children.splice(scene.children.indexOf(room.models),1);
+    rooms[room.position.x][room.position.y = undefined];
 }
 
 function generateWorld()
 {
     for(var i = 0; i < worldSize.x; i++)
     {
-        rooms.push(new Array());
+        rooms[i] = new Array();
         for(var j = 0; j < worldSize.y; j++)
         {
-            addRoom(i,j,new Room(i,j,rooms));
+            rooms[i][j] = new Room(i,j,rooms);
+            addRoom(i,j,rooms[i][j]);
         }
     }
+    generated = true;
+}
+
+function generateHalls()
+{
+    var halls = new THREE.Group();
+    for(var i = 0; i < 4; i++)
+    {
+        var globalAngle = (i/2) * Math.PI;
+        for(var j = 0; j < 4; j++)
+        {
+            var localAngle = (j/2) * Math.PI;
+            var x = Math.cos(globalAngle)*5 + Math.cos(localAngle)*2.5;
+            var y = Math.sin(globalAngle)*5 + Math.sin(localAngle)*2.5;
+            var m = loadModel(ModelData.decorative.hall);
+            m.position.x = x;
+            m.position.z = y;
+            m.position.y += (Math.random() - 0.5)/8;
+            m.rotation.y = localAngle;
+            halls.add(m);
+        }
+    }
+    scene.add(halls);
+}
+
+function warpRoom(direction)//1 to 4
+{
+    var x = Math.round(Math.sin(direction));
+    var y = -Math.round(Math.cos(direction));
+    var res = new Array();
+    for(var i = 0; i < 3; i++)
+    {
+        res[i] = new Array();
+        for(var j = 0; j < 3; j++)
+        {
+            if(rooms[i+x] != undefined && rooms[i+x][j+y] != undefined)
+            {
+                res[i][j] = rooms[i+x][j+y];
+            }
+            else
+            {
+                res[i][j] = new Room(i+x,j+y,rooms);
+            }
+        }
+    }
+    for(var i in rooms)
+        for(var j in rooms[i])
+            removeRoom(rooms[i][j]);
+    for(var i in res)
+        for(var j in res[i])
+        {
+            res[i][j].position.set(i,j);
+            addRoom(i,j,res[i][j]);
+        }
 }
 
 function render()
@@ -130,10 +190,25 @@ function render()
     composer.render();
 }
 
+function updateDeltaTime()
+{
+    var time = (new Date()).getTime();
+    deltaTime = time - lastFrame;
+    lastFrame = time;
+}
+
+function updateStartLight()
+{
+    if(playerLight.distance > 2.3)playerLight.distance -= 0.03;
+    else playerLight.distance = 2.3;
+}
+
 function main()
 {
     if(isFocused())player.update();
     playerFollowers();
+    updateDeltaTime();
+    updateStartLight();
     render();
     requestAnimationFrame(main);
 }
@@ -142,6 +217,7 @@ function init()
 {
     console.log("game initiated.");
     generateWorld();
+    generateHalls();
     main();
 }
 init();
