@@ -21,6 +21,11 @@ var mouse =
     {
         x:0,
         y:0
+    },
+    lastPos:
+    {
+        x:0,
+        y:0
     }
 }
 
@@ -65,7 +70,16 @@ window.addEventListener("mouseup",function(e){ mouseHandler(e.button,false); });
 
 window.addEventListener("mousemove",function(e)
 {
-    mouse.movement.x = e.movementX;
-    mouse.movement.y = e.movementY;
+    if(document.pointerLockElement === canvas ||
+       document.mozPointerLockElement === canvas ||
+       document.webkitPointerLockElement === canvas) {
+        mouse.movement.x = e.movementX;
+        mouse.movement.y = e.movementY;
+    } else {
+        mouse.movement.x = e.clientX - mouse.lastPos.x;
+        mouse.movement.y = e.clientY - mouse.lastPos.y;
+        mouse.lastPos.x = e.clientX;
+        mouse.lastPos.y = e.clientY;
+    }
     updateRotation();
 });

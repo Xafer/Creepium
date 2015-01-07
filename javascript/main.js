@@ -11,12 +11,15 @@ renderer.setSize(window.innerWidth,window.innerHeight);
 renderer.domElement.id = "game";
 renderer.domElement.style.width = "100%";
 renderer.domElement.style.height = "100%";
-renderer.setClearColor(0x110011);
 document.getElementById("display").appendChild(renderer.domElement);
 
 renderer.shadowMapEnabled = true;
 
-scene.fog = new THREE.Fog( 0x110011, 3,6 );
+var fogColor = new THREE.Color(0xffffff);
+var destinationFog = new THREE.Color(0x110011);
+
+scene.fog = new THREE.Fog( fogColor, 3,5 );
+renderer.setClearColor(fogColor);
 
 //PostProcessing
 var composer = new THREE.EffectComposer( renderer );
@@ -34,9 +37,9 @@ canvas.requestPointerLock = canvas.requestPointerLock ||
                             canvas.mozRequestPointerLock ||
                             canvas.webkitRequestPointerLock;
 
-document.exitPointerLock = document.exitPointerLock ||
-                           document.mozExitPointerLock ||
-                           document.webkitExitPointerLock;
+canvas.exitPointerLock = canvas.exitPointerLock ||
+                           canvas.mozExitPointerLock ||
+                           canvas.webkitExitPointerLock;
 
 canvas.onclick = function() {
     canvas.requestPointerLock();
@@ -44,7 +47,7 @@ canvas.onclick = function() {
 
 function isFocused()
 {
-    return document.pointerLockElement === canvas || document.mozPointerLockElement === canvas || document.webkitPointerLockElement === canvas;
+    return true//document.pointerLockElement === canvas || document.mozPointerLockElement === canvas || document.webkitPointerLockElement === canvas;
 }
 
 /////////////////////////////////////////////
@@ -55,17 +58,31 @@ function isFocused()
 
 var player = new Player();
 var playerLight = new THREE.PointLight( 0xddaa77,1,10 );
+var basePlayerLightDistance = 10;
+var playerLightDisturbance = 0.01;
 scene.add(playerLight);
 player.position.y = 1;
 var deltaTime = 0;
 var lastFrame = (new Date()).getTime();
 
+var ambiantLightColor = new THREE.Color(0x000000);
+var destinationLightColor = new THREE.Color(0x000000);
+var ambiantLight = new THREE.AmbientLight(ambiantLightColor);
+scene.add(ambiantLight);
+
 var models = new Array();
 var rooms = new Array();
+var entities = new Array();
 
 var generated = false;
 
 var worldSize = new THREE.Vector2(3,3);
+
+var beatIndex = 0;
+
+var dangerFactor = 0;
+
+var difficulty = 1;
 
 
 //Functions
@@ -75,6 +92,10 @@ function playerFollowers()
     camera.position.set(player.position.x,player.position.y,player.position.z);
     camera.rotation.set(player.rotation.x,player.rotation.y,player.rotation.z);
     playerLight.position.copy(player.position);
+    playerLight.position.y = player.realHeight + (Math.random() - 0.5)*playerLightDisturbance;
+    playerLight.position.x += (Math.random() - 0.5)*playerLightDisturbance;
+    playerLight.position.z += (Math.random() - 0.5)*playerLightDisturbance;
+    playerLight.distance = basePlayerLightDistance + (Math.random() - 0.5) * playerLightDisturbance;
 }
 
 function updateRotation()
@@ -117,6 +138,18 @@ function removeRoom(room)
     rooms[room.position.x][room.position.y = undefined];
 }
 
+function addEntity(entity)
+{
+    scene.add(entity.model);
+    entities.push(entity);
+}
+
+function removeEntity(entity)
+{
+    scene.children.splice(scene.children.indexOf(entity.model),1);
+    entities.splice(entities.indexOf(entity),1);
+}
+
 function generateWorld()
 {
     for(var i = 0; i < worldSize.x; i++)
@@ -153,10 +186,38 @@ function generateHalls()
     scene.add(halls);
 }
 
+function createMonster()
+{
+    if(dangerFactor >= 1)
+    {
+        var x = (Math.random() >= 0.5)?-1:1;
+        var z = (Math.random() >= 0.5)?-1:1;
+        
+        var ghost = new Ghost();
+        
+        ghost.position.x = x*5;
+        ghost.position.y = 0.5;
+        ghost.position.z = z*5;
+        
+        addEntity(ghost);
+        
+        dangerFactor = 0;
+    }
+}
+
 function warpRoom(direction)//1 to 4
 {
     var x = Math.round(Math.sin(direction));
     var y = -Math.round(Math.cos(direction));
+    
+    var l = entities.length;
+    
+    for(var i = 0; i < l; i++)
+    {
+        entities[i].position.x -= x*5;
+        entities[i].position.z -= y*5;
+    }
+    
     var res = new Array();
     for(var i = 0; i < 3; i++)
     {
@@ -177,11 +238,31 @@ function warpRoom(direction)//1 to 4
         for(var j in rooms[i])
             removeRoom(rooms[i][j]);
     for(var i in res)
+    {
         for(var j in res[i])
         {
             res[i][j].position.set(i,j);
             addRoom(i,j,res[i][j]);
         }
+    }
+    
+    dangerFactor += (difficulty/10);
+}
+
+function updateFog()
+{
+    if( Math.abs(fogColor.r - destinationFog.r) > 0.01 )fogColor.r = (fogColor.r - (fogColor.r - destinationFog.r) / 32);
+    if( Math.abs(fogColor.g - destinationFog.g) > 0.01 )fogColor.g = (fogColor.g - (fogColor.g - destinationFog.g) / 32);
+    if( Math.abs(fogColor.b - destinationFog.b) > 0.01 )fogColor.b = (fogColor.b - (fogColor.b - destinationFog.b) / 32);
+    
+    if( Math.abs(ambiantLightColor.r - destinationLightColor.r) > 0.01 )ambiantLightColor.r = (ambiantLightColor.r - (ambiantLightColor.r - destinationLightColor.r) / 32);
+    if( Math.abs(ambiantLightColor.g - destinationLightColor.g) > 0.01 )ambiantLightColor.g = (ambiantLightColor.g - (ambiantLightColor.g - destinationLightColor.g) / 32);
+    if( Math.abs(ambiantLightColor.b - destinationLightColor.b) > 0.01 )ambiantLightColor.b = (ambiantLightColor.b - (ambiantLightColor.b - destinationLightColor.b) / 32);
+    
+    renderer.setClearColor(fogColor);
+    scene.fog.color = fogColor;
+    
+    ambiantLight.color = ambiantLightColor;
 }
 
 function render()
@@ -199,16 +280,43 @@ function updateDeltaTime()
 
 function updateStartLight()
 {
-    if(playerLight.distance > 2.3)playerLight.distance -= 0.03;
-    else playerLight.distance = 2.3;
+    if(basePlayerLightDistance > 2.4)basePlayerLightDistance -= 0.03;
+    else basePlayerLightDistance = 2.4;
+}
+
+function soundify()
+{
+    if(Math.random() < 0.0001)
+    {
+        playSound("ambiance"+(Math.floor(Math.random()*2) + 1))
+    }
+    if(beatIndex > 400)
+    {
+        playSound("beat1");
+        beatIndex = 0;
+    }
+    else beatIndex++;
+}
+
+function updateEntities()
+{
+    if(isFocused())player.update();
+    var l = entities.length;
+    for(var i = 0; i < l; i++)
+    {
+        var e = entities[i];
+        e.update();
+    }
 }
 
 function main()
 {
-    if(isFocused())player.update();
-    playerFollowers();
+    updateEntities();
     updateDeltaTime();
     updateStartLight();
+    createMonster();
+    updateFog();
+    soundify();
     render();
     requestAnimationFrame(main);
 }
@@ -255,8 +363,10 @@ function loadModel(model)
        
         loadedModel.add(mesh);
         
+        /*
         if(!(model === ModelData.wood.floor) || i < 4)mesh.castShadow = true;
         mesh.receiveShadow = true;
+        */
     }
     
     l = model.lights.length;
