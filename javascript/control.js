@@ -75,11 +75,11 @@ window.addEventListener("mousemove",function(e)
        document.webkitPointerLockElement === canvas) {
         mouse.movement.x = e.movementX;
         mouse.movement.y = e.movementY;
-    } else {
+    } /*else {
         mouse.movement.x = e.clientX - mouse.lastPos.x;
         mouse.movement.y = e.clientY - mouse.lastPos.y;
         mouse.lastPos.x = e.clientX;
         mouse.lastPos.y = e.clientY;
-    }
+    }*/
     updateRotation();
 });

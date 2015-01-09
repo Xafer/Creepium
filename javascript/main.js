@@ -80,9 +80,16 @@ var worldSize = new THREE.Vector2(3,3);
 
 var beatIndex = 0;
 
-var dangerFactor = 0;
+var dangerFactor = 0.5;
 
 var difficulty = 1;
+
+var tick = 0;
+var monsterDelay = 0;
+
+var screeched = false;
+
+var alive = true;
 
 
 //Functions
@@ -100,7 +107,7 @@ function playerFollowers()
 
 function updateRotation()
 {
-    if(isFocused())
+    if(isFocused() && alive)
     {
        var rotMax = Math.PI / 2 - Math.PI / 8;
     
@@ -186,22 +193,51 @@ function generateHalls()
     scene.add(halls);
 }
 
+function spawnMonster(monster)
+{
+    var x;
+    var z;
+        
+    var entity;
+        
+    switch(monster)
+    {
+        case "ghost"://Ghost
+            x = (Math.random() >= 0.5)?-1:1;
+            z = (Math.random() >= 0.5)?-1:1;
+
+            entity = new Ghost();
+
+            entity.position.x = x*5;
+            entity.position.y = 0.5;
+            entity.position.z = z*5;
+                
+            break;
+        case "eyes"://Eyes
+            x = -player.position.x;
+            z = -player.position.z;
+            
+            entity = new Eyes();
+            
+            entity.position.x = x;
+            entity.position.z = z;
+            entity.position.y = Math.random()/8 + 0.4;
+            
+            break;
+    }
+    
+    addEntity(entity);
+    dangerFactor = 0;
+}
+
 function createMonster()
 {
     if(dangerFactor >= 1)
     {
-        var x = (Math.random() >= 0.5)?-1:1;
-        var z = (Math.random() >= 0.5)?-1:1;
+        var m = ["ghost","eyes","scurry"][Math.floor(Math.random()*2)];
+        spawnMonster(m);
         
-        var ghost = new Ghost();
-        
-        ghost.position.x = x*5;
-        ghost.position.y = 0.5;
-        ghost.position.z = z*5;
-        
-        addEntity(ghost);
-        
-        dangerFactor = 0;
+        screeched = false;
     }
 }
 
@@ -246,7 +282,7 @@ function warpRoom(direction)//1 to 4
         }
     }
     
-    dangerFactor += (difficulty/10);
+    if(entities.length < 1)dangerFactor += (difficulty/10);
 }
 
 function updateFog()
@@ -290,23 +326,84 @@ function soundify()
     {
         playSound("ambiance"+(Math.floor(Math.random()*2) + 1))
     }
-    if(beatIndex > 400)
+    
+    var wait;
+    
+    if(entities.length >= 1)
     {
-        playSound("beat1");
+        var d = new THREE.Vector3();
+        d.subVectors(player.position,entities[0].position);
+        var l = d.length();
+        wait = l * 40;
+        wait = Math.min(wait,300);
+    }
+    else
+    {
+        wait = 400 - (dangerFactor * 100);
+    }
+    
+    if(beatIndex > wait)
+    {
+        beat();
+        window.setTimeout(beat,250 * (wait / 300));
         beatIndex = 0;
     }
     else beatIndex++;
 }
 
+function isOnScreen(position)
+{
+    var widthHalf = canvas.width / 2, heightHalf = canvas.height / 2;
+
+    var vector = position;
+    var res;
+    res = vector.project(camera);
+    
+    return res
+}
+
+function testScreech()
+{
+    if(entities.length >= 1 && entities[0].type == "ghost")
+    {
+        var distance = (new THREE.Vector3()).subVectors(entities[0].position,player.position).length();
+        var v = entities[0].position.clone();
+        v.y += 0.5;
+        var a = isOnScreen(v);
+        if(a.z < 1)
+        {
+            if(!screeched && (Math.abs(a.x) < 0.3 && Math.abs(a.y) < 0.4) && distance < 2.3)
+            {
+                playSound("scare2");
+                screeched = true;
+            }
+        }
+    }
+}
+
+function beat()
+{
+    playSound("beat1");
+}
+
 function updateEntities()
 {
     if(isFocused())player.update();
-    var l = entities.length;
-    for(var i = 0; i < l; i++)
+    if(alive)
     {
-        var e = entities[i];
-        e.update();
+        var l = entities.length;
+        for(var i = 0; i < l; i++)
+        {
+            var e = entities[i];
+            if(e != undefined)e.update();
+        }
     }
+}
+
+function updateTime()
+{
+    tick++;
+    if(entities.length < 1)dangerFactor += 0.00001 * difficulty;
 }
 
 function main()
@@ -314,10 +411,17 @@ function main()
     updateEntities();
     updateDeltaTime();
     updateStartLight();
+    
+    testScreech();
+    
     createMonster();
+    
     updateFog();
-    soundify();
+    if(alive)soundify();
+    
     render();
+    
+    if(alive)updateTime();
     requestAnimationFrame(main);
 }
 
@@ -362,16 +466,11 @@ function loadModel(model)
         mesh.rotation.copy(rot);
        
         loadedModel.add(mesh);
-        
-        /*
-        if(!(model === ModelData.wood.floor) || i < 4)mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        */
     }
     
     l = model.lights.length;
     
-    for(var i = 0; i < l;i++)
+    for(var i = 0; i < l;i++)//Parsing through lights
     {
         var light = model.lights[i];
         var resLight = new THREE[light.type](light.color);
@@ -390,9 +489,24 @@ function loadModel(model)
             resLight.shadowCameraFov = 90;
         }
         
-        resLight.target = loadedModel.children[0];
-        
         loadedModel.add(resLight);
+    }
+    
+    l = model.systems.length;
+    
+    for(var i = 0; i < l; i++)
+    {
+        var particle = model.systems[i];
+        var material = new THREE.SpriteMaterial({color:particle.color});
+        
+        var resParticle = new THREE.Sprite(material);
+        
+        resParticle.position.set(particle.position[0],particle.position[1],particle.position[2]);
+        
+        resParticle.scale.x = particle.size.x;
+        resParticle.scale.y = particle.size.y;
+        
+        loadedModel.add(resParticle);
     }
     
     return loadedModel;

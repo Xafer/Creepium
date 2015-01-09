@@ -112,14 +112,14 @@ function Entity()
         this.control();
         this.gravitate();
         if(this.testCollistion())this.velocity.set(0,0,0);
-        this.move();
+        if(this.life > 0)this.move();
         if(this.model != undefined)this.moveModel();
         this.testLife();
     }
     
     this.testLife = function()
     {
-        if(this.life <= 0)removeEntity(this);
+        if(this.life <= 0 && this != player)removeEntity(this);
     }
     
     this.moveModel = function()
@@ -162,8 +162,14 @@ Player.prototype.changeRoom = function()
 
 Player.prototype.kill = function()
 {
-    destinationFog.setHex(0xff0000);
-    destinationLightColor.setHex(0x440000);
+    if(alive)
+    {
+        destinationFog.setHex(0xff0000);
+        destinationLightColor.setHex(0x440000);
+        playSound("scare1");
+        alive = false;
+        this.life = 0;
+    }
 }
 
 Player.prototype.testEnnemy = function()
@@ -175,57 +181,67 @@ Player.prototype.testEnnemy = function()
         var v = new THREE.Vector3();
         v.subVectors(this.position,e.position);
         v.y = 0;
-        if(v.length() < 0.5)this.kill();
+        if(v.length() < 0.5 && e.type == "ghost")this.kill();
+        else if(v.length() < 2.4 && e.type == "eyes" && e.life > 100)e.life = 100;
     }
 }
 
 Player.prototype.control = function()
 {
-    // Controls
-    var facing = new THREE.Vector2(0,0);
-        
-    this.speed = this.baseSpeed * ((this.crouched)?0.5:1);
-
-    if(keys.front) facing.y = 1;
-    else if(keys.back) facing.y = -1;
-
-    if(keys.left) facing.x = -1;
-    else if(keys.right) facing.x = 1;
-        
-    if(this.god)
-    {
-        if(keys.space) this.velocity.y = this.speed;
-        else if(keys.shift) this.velocity.y = -this.speed;
-    }
-    else
-    {
-        if(keys.space && this.ground)
-        {
-            this.ground = false;
-            this.velocity.y = 0.015;
-        }
-            
-        if(keys.shift) this.crouched = true;
-        else this.crouched = false;
-    }
-
-    var angle = Math.atan2(facing.y,facing.x) + this.rotation.y;
-
-    if(facing.x != 0 || facing.y != 0)
-    {
-        this.velocity.x = Math.cos(angle)*this.speed;
-        this.velocity.z = -Math.sin(angle)*this.speed;
-    }
-    else
-    {
-        this.velocity.x = 0;
-        this.velocity.z = 0;
-    }
     
-    this.changeRoom();
+    if(alive)
+    {
+        // Controls
+        var facing = new THREE.Vector2(0,0);
+
+        this.speed = this.baseSpeed * ((this.crouched)?0.5:1);
+
+        if(keys.front) facing.y = 1;
+        else if(keys.back) facing.y = -1;
+
+        if(keys.left) facing.x = -1;
+        else if(keys.right) facing.x = 1;
+
+        if(this.god)
+        {
+            if(keys.space) this.velocity.y = this.speed;
+            else if(keys.shift) this.velocity.y = -this.speed;
+        }
+        else
+        {
+            if(keys.space && this.ground)
+            {
+                this.ground = false;
+                this.velocity.y = 0.015;
+            }
+
+            if(keys.shift) this.crouched = true;
+            else this.crouched = false;
+        }
+
+        var angle = Math.atan2(facing.y,facing.x) + this.rotation.y;
+
+        if(facing.x != 0 || facing.y != 0)
+        {
+            this.velocity.x = Math.cos(angle)*this.speed;
+            this.velocity.z = -Math.sin(angle)*this.speed;
+        }
+        else
+        {
+            this.velocity.x = 0;
+            this.velocity.z = 0;
+        }
+
+        this.changeRoom();
+        this.testEnnemy();
+        this.position.y = this.realHeight - ((this.crouched)?0.2:0) + Math.abs(Math.pow(Math.sin((this.distance*Math.PI)/this.stepFrequency),4)/10);
+    }
+    else
+    {
+        if(this.position.y > 0.1)this.position.y -= 0.02;
+        if(this.rotation.z < Math.PI/2)this.rotation.z += 0.05;
+    }
     playerFollowers();
-    this.testEnnemy();
-    this.position.y = this.realHeight - ((this.crouched)?0.2:0) + Math.abs(Math.pow(Math.sin((this.distance*Math.PI)/this.stepFrequency),4)/10);
 }
 
 //Ghost
@@ -269,6 +285,46 @@ Ghost.prototype.control = function()
     var v =  (Math.min(this.life,100) / 100);
     
     this.model.scale.set(v,v,v);
+}
+
+//Eyes
+
+function Eyes()
+{
+    for(var i in this)
+        if(this[i] != undefined && this[i].clone != undefined)this[i] = this[i].clone();
+    this.solid = false;
+    this.speed = 0.01;
+    this.model = loadModel(ModelData.entity.enemy2);
+    this.id = entityId++;
+    this.fly = true;
+    this.life = 2000;
+    this.type = "eyes";
+}
+
+Eyes.extends(Entity);
+
+Eyes.prototype.control = function()
+{
+    var facing = new THREE.Vector2(0,0);
+        
+    facing.x = player.position.x - this.position.x;
+    facing.y = player.position.z - this.position.z;
+    
+    var angle = Math.atan2(facing.y,facing.x);
+    
+    this.model.rotation.y = -angle;
+    
+    this.life--;
+    
+    var v =  (Math.min(this.life,100) / 100);
+    
+    for(var i = 0; i < this.model.children.length; i++)
+    {
+        var m = this.model.children[i];
+        m.scale.x = [0.1,0.08][i] * v;
+        m.scale.y = [0.1,0.07][i] * v;
+    }
 }
 
 //Model
