@@ -80,7 +80,7 @@ var worldSize = new THREE.Vector2(3,3);
 
 var beatIndex = 0;
 
-var dangerFactor = 0.5;
+var dangerFactor = 0.5;//0.5;
 
 var difficulty = 1;
 

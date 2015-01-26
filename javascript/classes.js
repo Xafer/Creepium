@@ -345,7 +345,7 @@ function Room(x,y,parent)
     if(x == undefined)x = 0;
     if(y == undefined)Y = 0;
     this.position = new THREE.Vector2(x,y);
-    this.type = ["wood"][Math.floor(Math.random()*0)];
+    this.type = ["wood","concrete"][Math.floor(Math.random()*2)];
     this.models = new THREE.Group();
     this.obstacles = [];
     
@@ -384,7 +384,7 @@ function Room(x,y,parent)
     {
         if(Math.random() < 0.1)
         {
-            m = loadModel(ModelData["wood"]["table"]);
+            m = loadModel(ModelData["decorative"]["table"]);
             m.rotation.y = Math.random() * Math.PI;
             m.rotation.x = Math.random()/10;
             this.models.add(m);
@@ -406,6 +406,7 @@ function Room(x,y,parent)
         }
     }
     //Walkthrough
+    //General
     if(Math.random() < 0.2)
     {
         m = loadModel(ModelData["decorative"]["puddle1"]);
@@ -413,6 +414,27 @@ function Room(x,y,parent)
         m.position.y -= Math.random()/4;
         m.rotation.y = Math.random()*Math.PI;
         this.models.add(m);
+    }
+    //Wood only
+    //Concrete only
+    if(this.type == "concrete")
+    {
+        if(Math.random() < 0.2)
+        {
+            
+            var color = (Math.random() < 0.5)?"Yellow":"Red";
+            var angle = Math.floor(Math.random()*4) * (Math.PI/2);
+            m = loadModel(ModelData["decorative"]["light"+color]);
+            
+            m.rotation.y = -angle;
+            m.rotation.z = Math.PI/2;
+            
+            m.position.y = 2;
+            m.position.x = Math.cos(angle)*1.94;
+            m.position.z = Math.sin(angle)*1.94;
+            
+            this.models.add(m);
+        }
     }
 }
 
